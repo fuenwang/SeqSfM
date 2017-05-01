@@ -83,8 +83,64 @@ class Matcher:
         index1 = index1[compare]
         index2 = result[:, 0][compare]
 
+        loc1 = loc1[index1, :]
+        loc2 = loc2[index2, :]
+
+        [F1, M1] = cv2.findFundamentalMat(loc1, loc2, cv2.FM_RANSAC)
+        [F2, M2] = cv2.findFundamentalMat(loc2, loc1, cv2.FM_RANSAC)
+        M = M1 * M2
+        M = np.reshape(M, [-1])
+        
+        index1 = index1[M == 1]
+        index2 = index2[M == 1]
+
         return np.vstack([index1, index2]).T
-    
+
+    def Visual_Match(self, frame1, frame2):
+        feature1 = self._config.LoadFeature(frame1)
+        feature2 = self._config.LoadFeature(frame2)
+
+        [loc1, des1] = [feature1['location'], feature1['descriptor']]
+        [loc2, des2] = [feature2['location'], feature2['descriptor']]
+
+        flann = pyflann.FLANN()
+        result, dist = flann.nn(des2, des1, 2, algorithm="kmeans", branching=32, iterations=10, checks=200)
+
+        index1 = np.arange(loc1.shape[0])
+        compare = (dist[:, 0].astype(np.float32) / dist[:, 1]) < self._config.Get('flann_threshold')
+
+        index1 = index1[compare]
+        index2 = result[:, 0][compare]
+
+        loc1 = loc1[index1, :]
+        loc2 = loc2[index2, :]
+
+        [F1, M1] = cv2.findFundamentalMat(loc1, loc2, cv2.FM_RANSAC)
+        [F2, M2] = cv2.findFundamentalMat(loc2, loc1, cv2.FM_RANSAC)
+        M = M1 * M2
+        M = np.reshape(M, [-1])
+        loc1 = loc1[M==1, :]
+        loc2 = loc2[M==1, :]
+
+        img1 = cv2.imread(frame1, cv2.IMREAD_COLOR)
+        img2 = cv2.imread(frame2, cv2.IMREAD_COLOR)
+
+        height = img1.shape[0]
+        width = img1.shape[1]
+
+        big = np.zeros([height, 2 * width, 3], dtype=np.uint8)
+        big[:, 0:width] = img1
+        big[:, width:] = img2
+        
+        loc1 = loc1.astype(int)
+        loc2[:, 0] += width
+        loc2 = loc2.astype(int)
+        for i in range(loc1.shape[0]):
+            cv2.line(big, (loc1[i,0], loc1[i,1]), (loc2[i,0], loc2[i,1]), (0, 255, 0))
+        cv2.namedWindow('Visualize')
+        cv2.imshow('Visualize', big)
+        cv2.waitKey(0)
+   
     def Match_all(self):
         nframes = self._config.Get('nframes')
         match_lst = []
@@ -122,11 +178,11 @@ if __name__ == '__main__':
     lst = config.ImageList()
     #extract = Extractor(config)
     #extract.Extract_all()
-
+    #'''
     match = Matcher(config)
-
+    #match.Visual_Match(lst[0], lst[2])
     match.Match_all()
-
+    #'''
 
 
 
