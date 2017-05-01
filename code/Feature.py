@@ -7,37 +7,40 @@ import numpy as np
 import pyflann
 from multiprocessing import Pool
 
+
 def _extractWrap(buf):
     obj = buf[0]
     img_name = buf[1]
     [loc, des] = obj.Extract(img_name)
     obj.SaveFeature(img_name, loc, des)
 
+
 def _matchWrap(buf):
     obj = buf[0]
     img = buf[1]
     lst = buf[2]
-    print 'Match for %s' %img   
+    print 'Match for %s' % img
     data = {}
     for to_match in lst:
         key = to_match.split('/')[-1]
-        index =  obj.Match_one_frame(img, to_match)
+        index = obj.Match_one_frame(img, to_match)
         data[key] = index
 
     obj.SaveMatch(img, data)
+
 
 class Extractor:
     def __init__(self, config):
         self._config = config
         self._feature_path = config.FeaturePath()
         if not os.path.isdir(self._feature_path):
-            os.system('mkdir -p %s'%self._feature_path)
+            os.system('mkdir -p %s' % self._feature_path)
 
     def Extract(self, img_name):
-        print 'Extract SIFT %s'%img_name
+        print 'Extract SIFT %s' % img_name
         img = cv2.imread(img_name, cv2.IMREAD_GRAYSCALE)
         img = img.astype(np.float32) / 255
-        #print img
+        # print img
         peak = self._config.Get('sift_peak_threshold')
         edge = self._config.Get('sift_edge_threshold')
         loc, des = vlfeat.vl_sift(img, peak_thresh=peak, edge_thresh=edge)
@@ -49,17 +52,18 @@ class Extractor:
 
     def SaveFeature(self, img_name, loc, des):
         short = img_name.split('/')[-1].split('.')[0]
-        feature_path = '%s/%s.npy'%(self._feature_path, short)
-        #print loc.shape
-        #print des.shape
-        np.save(feature_path, {'location':loc, 'descriptor':des})
-    
+        feature_path = '%s/%s.npy' % (self._feature_path, short)
+        # print loc.shape
+        # print des.shape
+        np.save(feature_path, {'location': loc, 'descriptor': des})
+
     def Extract_all(self):
         lst = self._config.ImageList()
         arg = Config.ParameterTuple(self, lst)
-        pool = Pool(processes = self._config.Get('threads'))
-        #print arg
+        pool = Pool(processes=self._config.Get('threads'))
+        # print arg
         pool.map(_extractWrap, arg)
+
 
 class Matcher:
     def __init__(self, config):
@@ -75,10 +79,12 @@ class Matcher:
         [loc2, des2] = [feature2['location'], feature2['descriptor']]
 
         flann = pyflann.FLANN()
-        result, dist = flann.nn(des2, des1, 2, algorithm="kmeans", branching=32, iterations=10, checks=200)
+        result, dist = flann.nn(
+            des2, des1, 2, algorithm="kmeans", branching=32, iterations=10, checks=200)
 
         index1 = np.arange(loc1.shape[0])
-        compare = (dist[:, 0].astype(np.float32) / dist[:, 1]) < self._config.Get('flann_threshold')
+        compare = (dist[:, 0].astype(np.float32) / dist[:, 1]
+                   ) < self._config.Get('flann_threshold')
 
         index1 = index1[compare]
         index2 = result[:, 0][compare]
@@ -90,7 +96,7 @@ class Matcher:
         [F2, M2] = cv2.findFundamentalMat(loc2, loc1, cv2.FM_RANSAC)
         M = M1 * M2
         M = np.reshape(M, [-1])
-        
+
         index1 = index1[M == 1]
         index2 = index2[M == 1]
 
@@ -104,10 +110,12 @@ class Matcher:
         [loc2, des2] = [feature2['location'], feature2['descriptor']]
 
         flann = pyflann.FLANN()
-        result, dist = flann.nn(des2, des1, 2, algorithm="kmeans", branching=32, iterations=10, checks=200)
+        result, dist = flann.nn(
+            des2, des1, 2, algorithm="kmeans", branching=32, iterations=10, checks=200)
 
         index1 = np.arange(loc1.shape[0])
-        compare = (dist[:, 0].astype(np.float32) / dist[:, 1]) < self._config.Get('flann_threshold')
+        compare = (dist[:, 0].astype(np.float32) / dist[:, 1]
+                   ) < self._config.Get('flann_threshold')
 
         index1 = index1[compare]
         index2 = result[:, 0][compare]
@@ -119,8 +127,8 @@ class Matcher:
         [F2, M2] = cv2.findFundamentalMat(loc2, loc1, cv2.FM_RANSAC)
         M = M1 * M2
         M = np.reshape(M, [-1])
-        loc1 = loc1[M==1, :]
-        loc2 = loc2[M==1, :]
+        loc1 = loc1[M == 1, :]
+        loc2 = loc2[M == 1, :]
 
         img1 = cv2.imread(frame1, cv2.IMREAD_COLOR)
         img2 = cv2.imread(frame2, cv2.IMREAD_COLOR)
@@ -131,23 +139,24 @@ class Matcher:
         big = np.zeros([height, 2 * width, 3], dtype=np.uint8)
         big[:, 0:width] = img1
         big[:, width:] = img2
-        
+
         loc1 = loc1.astype(int)
         loc2[:, 0] += width
         loc2 = loc2.astype(int)
         for i in range(loc1.shape[0]):
-            cv2.line(big, (loc1[i,0], loc1[i,1]), (loc2[i,0], loc2[i,1]), (0, 255, 0))
+            cv2.line(big, (loc1[i, 0], loc1[i, 1]),
+                     (loc2[i, 0], loc2[i, 1]), (0, 255, 0))
         cv2.namedWindow('Visualize')
         cv2.imshow('Visualize', big)
         cv2.waitKey(0)
-   
+
     def Match_all(self):
         nframes = self._config.Get('nframes')
         match_lst = []
         total_frames = len(self._imglst)
         for i, img in enumerate(self._imglst):
             start = i + 1
-            if start  >= total_frames:
+            if start >= total_frames:
                 match_lst.append([])
                 break
             if i + nframes < total_frames:
@@ -155,35 +164,100 @@ class Matcher:
             else:
                 end = total_frames - 1
 
-            to_add = self._imglst[start:end+1]
+            to_add = self._imglst[start:end + 1]
             match_lst.append(to_add)
-        
+
         arg = []
         for i, one in enumerate(match_lst):
             arg.append([self, self._imglst[i], one])
 
-        pool = Pool(processes = self._config.Get('threads'))
+        pool = Pool(processes=self._config.Get('threads'))
         pool.map(_matchWrap, arg)
-        
 
     def SaveMatch(self, img, data):
         if not os.path.isdir(self._config.MatchPath()):
-            os.system('mkdir %s'%self._config.MatchPath())
+            os.system('mkdir %s' % self._config.MatchPath())
         name = img.split('/')[-1].split('.')[0]
-        name = '%s/%s.npy'%(self._config.MatchPath(), name)
+        name = '%s/%s.npy' % (self._config.MatchPath(), name)
         np.save(name, data)
+
+
+class Graph:
+    def __init__(self, config):
+        self._config = config
+        self._imglst = config.ImageList()
+
+        self.track_graph = {}
+        self.image_track_graph = {}
+        self.image_feature_graph = {}
+
+    def ConstructGraph(self):
+        track_graph = self.track_graph  # A[track][img]
+        #image_track_graph = self.image_track_graph # A[img][track]
+        image_feature_graph = self.image_feature_graph # A[img][feature_id]
+
+        match_data = {}
+        for img in self._imglst:
+            name = Config.ShortName(img)
+            match = self._config.LoadMatch(img)
+            match_data[name] = match
+        
+        next_track_id = 1
+        for img_full in self._imglst:
+            img = Config.ShortName(img_full)
+            match = match_data[img]
+            match_frames = match.keys()
+            '''
+            if img not in image_track_graph:
+                image_track_graph[img] = {}
+            '''
+            if img not in image_feature_graph:
+                image_feature_graph[img] = {}
+            for frame in match_frames:
+                frame_match = match[frame]
+                if frame not in image_feature_graph:
+                    image_feature_graph[frame] = {}
+                for pair in frame_match:
+                    # if wee find a new track
+                    if pair[0] not in image_feature_graph[img] and pair[1] not in image_feature_graph[frame]:
+                        image_feature_graph[img][pair[0]] = next_track_id
+                        image_feature_graph[frame][pair[1]] = next_track_id
+                        if next_track_id not in track_graph:
+                            track_graph[next_track_id] = {}
+                        track_graph[next_track_id][img] = pair[0]
+                        track_graph[next_track_id][frame] = pair[1]
+                        next_track_id += 1
+
+                    elif pair[0] not in image_feature_graph[img]:
+                        track_id = image_feature_graph[frame][pair[1]]
+                        image_feature_graph[img][pair[0]] = track_id
+                        track_graph[track_id][img] = pair[0]
+
+                    elif pair[1] not in image_feature_graph[frame]:
+                        track_id = image_feature_graph[img][pair[0]]
+                        image_feature_graph[frame][pair[1]] = track_id
+                        track_graph[track_id][frame] = pair[1]
+        
 
 if __name__ == '__main__':
     config = Config.Config(sys.argv[1])
     lst = config.ImageList()
     #extract = Extractor(config)
-    #extract.Extract_all()
+    # extract.Extract_all()
     #'''
-    match = Matcher(config)
+    #match = Matcher(config)
     #match.Visual_Match(lst[0], lst[2])
-    match.Match_all()
+    # match.Match_all()
     #'''
-
-
-
-
+    graph = Graph(config)
+    graph.ConstructGraph()
+    a = 0
+    for track in  graph.track_graph:
+        val = graph.track_graph[track]
+        if len(val.keys()) > a:
+            b = track
+            a = len(val.keys())
+    print a
+    print b
+    print graph.track_graph[5361]
+    print graph.image_feature_graph['image-00087.jpg'][323]

@@ -32,9 +32,17 @@ class Config:
         name = '%s/%s.npy'%(self._feature_path, shortname)
         return np.load(name).item()
 
+    def LoadMatch(self, img_name):
+        shortname = img_name.split('/')[-1].split('.')[0]
+        name = '%s/%s.npy'%(self._match_path, shortname)
+        return np.load(name).item()
+
 def ParameterTuple(first, second): # [first, second[0]], ....
     data = []
     for one in second:
         data.append([first, one])
 
     return data
+
+def ShortName(img):
+    return img.split('/')[-1]
