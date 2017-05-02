@@ -37,7 +37,6 @@ class Extractor:
             os.system('mkdir -p %s' % self._feature_path)
 
     def Extract(self, img_name):
-        print 'Extract SIFT %s' % img_name
         img = cv2.imread(img_name, cv2.IMREAD_GRAYSCALE)
         img = img.astype(np.float32) / 255
         # print img
@@ -48,6 +47,7 @@ class Extractor:
         loc = np.round(loc[0:2, :].T)
         des = des.T
         #self.SaveFeature(img_name, loc, des)
+        print 'Extract SIFT %s total %d points' % (img_name, loc.shape[0])
         return [loc, des.astype(np.float32)]
 
     def SaveFeature(self, img_name, loc, des):
@@ -243,21 +243,12 @@ if __name__ == '__main__':
     config = Config.Config(sys.argv[1])
     lst = config.ImageList()
     #extract = Extractor(config)
-    # extract.Extract_all()
+    #extract.Extract_all()
     #'''
     #match = Matcher(config)
     #match.Visual_Match(lst[0], lst[2])
-    # match.Match_all()
+    #match.Match_all()
     #'''
     graph = Graph(config)
     graph.ConstructGraph()
-    a = 0
-    for track in  graph.track_graph:
-        val = graph.track_graph[track]
-        if len(val.keys()) > a:
-            b = track
-            a = len(val.keys())
-    print a
-    print b
-    print graph.track_graph[5361]
-    print graph.image_feature_graph['image-00087.jpg'][323]
+    print graph.track_graph
