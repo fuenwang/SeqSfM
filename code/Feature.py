@@ -143,6 +143,11 @@ class Matcher:
         big = np.zeros([height, 2 * width, 3], dtype=np.uint8)
         big[:, 0:width] = img1
         big[:, width:] = img2
+        
+        loc1[:, 0] += width / 2
+        loc1[:, 1] += height / 2
+        loc2[:, 0] += width / 2
+        loc2[:, 1] += height / 2
 
         loc1 = loc1.astype(int)
         loc2[:, 0] += width
@@ -246,12 +251,12 @@ class Graph:
 if __name__ == '__main__':
     config = Config.Config(sys.argv[1])
     lst = config.ImageList()
-    extract = Extractor(config)
-    extract.Extract_all()
+    #extract = Extractor(config)
+    #extract.Extract_all()
     #'''
     match = Matcher(config)
-    #match.Visual_Match(lst[0], lst[2])
-    match.Match_all()
+    match.Visual_Match(lst[-1], lst[-3])
+    #match.Match_all()
     #'''
     '''
     graph = Graph(config)
