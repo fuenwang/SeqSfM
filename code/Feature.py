@@ -5,8 +5,22 @@ import Config
 import vlfeat
 import numpy as np
 import pyflann
+import pyopengv
 from multiprocessing import Pool
 
+def normalized(loc, height, width):
+    bigger = max(height, width)
+    loc[:, 0] -= width / 2
+    loc[:, 1] -= height / 2
+    loc /= bigger
+    return loc
+
+def denormalized(loc, height, width):
+    bigger = max(height, width)
+    loc *= bigger
+    loc[:, 0] += width / 2
+    loc[:, 1] += height / 2
+    return loc
 
 def _extractWrap(buf):
     obj = buf[0]
@@ -49,6 +63,8 @@ class Extractor:
         loc = np.round(loc[0:2, :].T)
         loc[:, 0] -= width / 2
         loc[:, 1] -= height / 2
+        #bigger = max(width, height)
+        #loc /= bigger
         des = des.T
         #self.SaveFeature(img_name, loc, des)
         print 'Extract SIFT %s total %d points' % (img_name, loc.shape[0])
@@ -144,6 +160,9 @@ class Matcher:
         big[:, 0:width] = img1
         big[:, width:] = img2
         
+        #bigger = max(width, height])
+        #loc1 *= bigger
+        #loc2 *= bigger
         loc1[:, 0] += width / 2
         loc1[:, 1] += height / 2
         loc2[:, 0] += width / 2
@@ -158,6 +177,59 @@ class Matcher:
         cv2.namedWindow('Visualize')
         cv2.imshow('Visualize', big)
         cv2.waitKey(0)
+
+    def Pose_test(self, frame1, frame2):
+        feature1 = self._config.LoadFeature(frame1)
+        feature2 = self._config.LoadFeature(frame2)
+
+        [loc1, des1] = [feature1['location'], feature1['descriptor']]
+        [loc2, des2] = [feature2['location'], feature2['descriptor']]
+
+        flann = pyflann.FLANN()
+        result, dist = flann.nn(
+            des2, des1, 2, algorithm="kmeans", branching=32, iterations=10, checks=200)
+
+        index1 = np.arange(loc1.shape[0])
+        compare = (dist[:, 0].astype(np.float32) / dist[:, 1]
+                   ) < self._config.Get('flann_threshold')
+
+        index1 = index1[compare]
+        index2 = result[:, 0][compare]
+
+        loc1 = loc1[index1, :]
+        loc2 = loc2[index2, :]
+
+        [F1, M1] = cv2.findFundamentalMat(loc1, loc2, cv2.FM_RANSAC)
+        [F2, M2] = cv2.findFundamentalMat(loc2, loc1, cv2.FM_RANSAC)
+        M = M1 * M2
+        M = np.reshape(M, [-1])
+        loc1 = loc1[M == 1, :]
+        loc2 = loc2[M == 1, :]
+
+
+        loc1 = normalized(loc1, 720, 1280)
+        loc2 = normalized(loc2, 720, 1280)
+
+        a = np.ones([loc1.shape[0], 3], np.float)
+        a[:, :2] = loc1
+        b = np.ones([loc1.shape[0], 3], np.float)
+        b[:, :2] = loc2
+        #print a
+        # eight point is better
+        M = pyopengv.relative_pose_eightpt(a, b)
+        #print M
+        i = 20
+        print a[i, :]
+        print b[i, :]
+        print np.dot(np.dot(a[i, :], M), b[i,:].T)
+        '''
+        M = pyopengv.relative_pose_fivept_nister(a, b)
+        print M
+        '''
+        #print a[0,:]
+        #print b[0,:]
+        #print np.dot(M, a[0, :])
+
 
     def Match_all(self):
         nframes = self._config.Get('nframes')
@@ -255,7 +327,8 @@ if __name__ == '__main__':
     #extract.Extract_all()
     #'''
     match = Matcher(config)
-    match.Visual_Match(lst[-1], lst[-3])
+    #match.Visual_Match(lst[-1], lst[-3])
+    match.Pose_test(lst[-1], lst[-3])
     #match.Match_all()
     #'''
     '''
