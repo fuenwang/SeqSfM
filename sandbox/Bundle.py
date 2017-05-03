@@ -43,8 +43,11 @@ def cost(params, n_cameras, n_points, camera_indices, point_indices, points_2d):
     camera_params = params[3:3+n_cameras * 6].reshape((n_cameras, 6))
     points_3d = params[3+n_cameras * 6:].reshape((n_points, 3))
     points_proj = project(points_3d[point_indices], camera_params[camera_indices], params[0], params[1], params[2])
-    
-    a = points_proj - points_2d
+    #print points_proj[:20]
+    #print points_2d[:20]
+    #exit()
+    a = points_proj + points_2d
+    #a = points_proj - points_2d
     a = np.sqrt(a[:, 0]**2 + a[:, 1]**2)
     return a.ravel()
 
@@ -134,10 +137,10 @@ class Bundle:
         x0 = np.hstack([[self.f, self.k1, self.k2], camera_params.ravel(), points_3d.ravel()])
         f = cost(x0, n_cameras, n_points, camera_indices, point_indices, points_2d)
         #print f
-        #print np.min(f)
+        #print np.max(f)
         #exit()
         A = bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices)
-        self.res = least_squares(cost, x0, jac_sparsity=A, verbose=2, x_scale='jac', ftol=1e-2, method='trf',
+        self.res = least_squares(cost, x0, jac_sparsity=A, verbose=2, x_scale='jac', ftol=1e-7, method='trf',
                     args=(n_cameras, n_points, camera_indices, point_indices, points_2d))        
 
         self.result = {}
@@ -157,6 +160,9 @@ class Bundle:
         index = self._point_tag[track_id]
         loc = self.result['points_3d'][index, :]
         return loc
+
+    def GetCameraIntrinsic(self):
+        return [self.result['f'], self.result['k1'], self.result['k2']]
 
 
 

@@ -52,8 +52,14 @@ for shot in shots:
 
 for track_id in points:
     loc = bundle.GetPoint(track_id)
-    loc[-1] *= -1
+    #loc[-1] *= -1
     points[track_id]['coordinates'] = loc.tolist()
+
+[f, k1, k2] = bundle.GetCameraIntrinsic()
+print f, k1, k2
+data['cameras']['v2 unknown unknown -1 -1 perspective 0']['focal'] = f
+data['cameras']['v2 unknown unknown -1 -1 perspective 0']['k1'] = k1
+data['cameras']['v2 unknown unknown -1 -1 perspective 0']['k2'] = k2
 
 f = open('new.json', 'w')
 f.write(json.dumps([data], indent=4))
