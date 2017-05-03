@@ -1,4 +1,5 @@
 import json
+import numpy as np
 import dataset
 import Bundle
 import networkx as nx
@@ -25,10 +26,11 @@ bundle = Bundle.Bundle()
 
 shots = data['shots']
 points = data['points']
+bundle.SetCamera(f, k1, k2)
 for shot in shots:
     R = shots[shot]['rotation']
     T = shots[shot]['translation']
-    bundle.AddCamera_tag(shot, R, T, f, k1, k2)
+    bundle.AddCamera_tag(shot, R, T)
 
 for track_id in points:
     [x, y, z] = points[track_id]['coordinates']
@@ -40,3 +42,19 @@ for track_id in points:
 
 bundle.Merge()
 bundle.Run()
+np.save('res.npy', bundle.res)
+
+for shot in shots:
+    [R, T] = bundle.GetShot(shot)
+    shots[shot]['rotation'] = R.tolist()
+    shots[shot]['translation'] = T.tolist()
+
+
+for track_id in points:
+    loc = bundle.GetPoint(track_id)
+    loc[-1] *= -1
+    points[track_id]['coordinates'] = loc.tolist()
+
+f = open('new.json', 'w')
+f.write(json.dumps([data], indent=4))
+f.close()
