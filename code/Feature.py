@@ -39,12 +39,16 @@ class Extractor:
     def Extract(self, img_name):
         img = cv2.imread(img_name, cv2.IMREAD_GRAYSCALE)
         img = img.astype(np.float32) / 255
+        height = img.shape[0]
+        width = img.shape[1]
         # print img
         peak = self._config.Get('sift_peak_threshold')
         edge = self._config.Get('sift_edge_threshold')
         loc, des = vlfeat.vl_sift(img, peak_thresh=peak, edge_thresh=edge)
         #loc, des = vlfeat.vl_sift(img)
         loc = np.round(loc[0:2, :].T)
+        loc[:, 0] -= width / 2
+        loc[:, 1] -= height / 2
         des = des.T
         #self.SaveFeature(img_name, loc, des)
         print 'Extract SIFT %s total %d points' % (img_name, loc.shape[0])
@@ -242,13 +246,15 @@ class Graph:
 if __name__ == '__main__':
     config = Config.Config(sys.argv[1])
     lst = config.ImageList()
-    #extract = Extractor(config)
-    #extract.Extract_all()
+    extract = Extractor(config)
+    extract.Extract_all()
     #'''
-    #match = Matcher(config)
+    match = Matcher(config)
     #match.Visual_Match(lst[0], lst[2])
-    #match.Match_all()
+    match.Match_all()
     #'''
+    '''
     graph = Graph(config)
     graph.ConstructGraph()
     print graph.track_graph
+    '''
