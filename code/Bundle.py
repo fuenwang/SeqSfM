@@ -68,6 +68,12 @@ class Bundle:
         self._point_indices = []
         self._point_2d = []
         self._point_3d = []
+
+        self._camera_tag = {}
+        self._point_tag = {}
+
+        self._camera_start = 0
+        self._point_start = 0
     '''
     def SetCameraNum(self, ncamera):
         self._ncameras = ncamera
@@ -88,6 +94,22 @@ class Bundle:
 
     def Add3DPoint(self, x, y, z):
         self._point_3d.append([x, y, z])
+
+    def AddCamera_tag(self, tag, R, T, f, d1, d2):
+        self._camera_param.append(np.hstack([R, T, f, d1, d2]))
+        self._camera_tag[tag] = self._camera_start
+        self._camera_start += 1
+
+    def Add2DPoint_tag(self, camera_tag, point_tag, x, y):
+        self._camera_indices.apppend(self._camera_tag[camera_tag])
+        self._point_indices.append(self._point_tag[point_tag])
+        self._point_2d.append([x, y])
+
+    def Add3DPoint_tag(self, tag, x, y, z):
+        self._point_3d.append([x, y, z])
+        self._point_tag[tag] = self._point_start
+        self._point_start += 1
+
 
     def Merge(self):
         self._camera_param = np.array(self._camera_param)
