@@ -8,6 +8,7 @@ import pyflann
 import pyopengv
 from multiprocessing import Pool
 
+
 def normalized(loc, height, width):
     bigger = max(height, width)
     loc[:, 0] -= width / 2
@@ -15,12 +16,14 @@ def normalized(loc, height, width):
     loc /= bigger
     return loc
 
+
 def denormalized(loc, height, width):
     bigger = max(height, width)
     loc *= bigger
     loc[:, 0] += width / 2
     loc[:, 1] += height / 2
     return loc
+
 
 def _extractWrap(buf):
     obj = buf[0]
@@ -44,6 +47,7 @@ def _matchWrap(buf):
 
 
 class Extractor:
+
     def __init__(self, config):
         self._config = config
         self._feature_path = config.FeaturePath()
@@ -86,6 +90,7 @@ class Extractor:
 
 
 class Matcher:
+
     def __init__(self, config):
         self._config = config
 
@@ -159,8 +164,8 @@ class Matcher:
         big = np.zeros([height, 2 * width, 3], dtype=np.uint8)
         big[:, 0:width] = img1
         big[:, width:] = img2
-        
-        #bigger = max(width, height])
+
+        # bigger = max(width, height])
         #loc1 *= bigger
         #loc2 *= bigger
         loc1[:, 0] += width / 2
@@ -206,7 +211,6 @@ class Matcher:
         loc1 = loc1[M == 1, :]
         loc2 = loc2[M == 1, :]
 
-
         loc1 = normalized(loc1, 720, 1280)
         loc2 = normalized(loc2, 720, 1280)
 
@@ -214,22 +218,21 @@ class Matcher:
         a[:, :2] = loc1
         b = np.ones([loc1.shape[0], 3], np.float)
         b[:, :2] = loc2
-        #print a
+        # print a
         # eight point is better
         M = pyopengv.relative_pose_eightpt(a, b)
-        #print M
+        # print M
         i = 20
         print a[i, :]
         print b[i, :]
-        print np.dot(np.dot(a[i, :], M), b[i,:].T)
+        print np.dot(np.dot(a[i, :], M), b[i, :].T)
         '''
         M = pyopengv.relative_pose_fivept_nister(a, b)
         print M
         '''
-        #print a[0,:]
-        #print b[0,:]
-        #print np.dot(M, a[0, :])
-
+        # print a[0,:]
+        # print b[0,:]
+        # print np.dot(M, a[0, :])
 
     def Match_all(self):
         nframes = self._config.Get('nframes')
@@ -264,25 +267,26 @@ class Matcher:
 
 
 class Graph:
+
     def __init__(self, config):
         self._config = config
         self._imglst = config.ImageList()
 
         self.track_graph = {}
-        self.image_track_graph = {}
         self.image_feature_graph = {}
+        self.image_image_graph = {}
 
     def ConstructGraph(self):
         track_graph = self.track_graph  # A[track][img]
-        #image_track_graph = self.image_track_graph # A[img][track]
-        image_feature_graph = self.image_feature_graph # A[img][feature_id]
-
+        # image_track_graph = self.image_track_graph # A[img][track]
+        image_feature_graph = self.image_feature_graph  # A[img][feature_id]
+        image_image_graph = self.image_image_graph
         match_data = {}
         for img in self._imglst:
             name = Config.ShortName(img)
             match = self._config.LoadMatch(img)
             match_data[name] = match
-        
+
         next_track_id = 1
         for img_full in self._imglst:
             img = Config.ShortName(img_full)
@@ -294,10 +298,16 @@ class Graph:
             '''
             if img not in image_feature_graph:
                 image_feature_graph[img] = {}
+            if img not in image_image_graph:
+                image_image_graph[img] = {}
+
             for frame in match_frames:
                 frame_match = match[frame]
                 if frame not in image_feature_graph:
                     image_feature_graph[frame] = {}
+                if frame not in image_image_graph:
+                    image_image_graph[frame] = {}
+
                 for pair in frame_match:
                     # if wee find a new track
                     if pair[0] not in image_feature_graph[img] and pair[1] not in image_feature_graph[frame]:
@@ -307,29 +317,48 @@ class Graph:
                             track_graph[next_track_id] = {}
                         track_graph[next_track_id][img] = pair[0]
                         track_graph[next_track_id][frame] = pair[1]
+
+                        if frame not in image_image_graph[img]:
+                            image_image_graph[img][frame] = []
+                        if img not in image_image_graph[frame]:
+                            image_image_graph[frame][img] = []
+                        image_image_graph[img][frame].append(next_track_id)
+                        image_image_graph[frame][img].append(next_track_id)
                         next_track_id += 1
 
                     elif pair[0] not in image_feature_graph[img]:
                         track_id = image_feature_graph[frame][pair[1]]
                         image_feature_graph[img][pair[0]] = track_id
                         track_graph[track_id][img] = pair[0]
+                        if frame not in image_image_graph[img]:
+                            image_image_graph[img][frame] = []
+                        if img not in image_image_graph[frame]:
+                            image_image_graph[frame][img] = []
+                        image_image_graph[img][frame].append(track_id)
+                        image_image_graph[frame][img].append(track_id)
 
                     elif pair[1] not in image_feature_graph[frame]:
                         track_id = image_feature_graph[img][pair[0]]
                         image_feature_graph[frame][pair[1]] = track_id
                         track_graph[track_id][frame] = pair[1]
-        
+                        if frame not in image_image_graph[img]:
+                            image_image_graph[img][frame] = []
+                        if img not in image_image_graph[frame]:
+                            image_image_graph[frame][img] = []
+                        image_image_graph[img][frame].append(track_id)
+                        image_image_graph[frame][img].append(track_id)
+
 
 if __name__ == '__main__':
     config = Config.Config(sys.argv[1])
     lst = config.ImageList()
     #extract = Extractor(config)
-    #extract.Extract_all()
+    # extract.Extract_all()
     #'''
     match = Matcher(config)
     #match.Visual_Match(lst[-1], lst[-3])
     match.Pose_test(lst[-1], lst[-3])
-    #match.Match_all()
+    # match.Match_all()
     #'''
     '''
     graph = Graph(config)
