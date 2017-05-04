@@ -22,18 +22,13 @@ class Model:
         return self._graph
 
     def Initialize(self):
-        start_frame = Config.ShortName(self._imglst[0])
-        for img in self._imglst:
-            name = Config.ShortName(img)
-            if len(self._graph.image_feature_graph[name]) > len(self._graph.image_feature_graph[start_frame]):
-                start_frame = name
-
-        print start_frame
+        start_frame_lst = [Config.ShortName(x) for x in self._imglst]
+        start_frame_lst = sorted(start_frame_lst, key=lambda x:len(self._graph.image_feature_graph[x]), reverse=True)
 
 
 if __name__ == '__main__':
     config = Config.Config(sys.argv[1])
     model = Model(config)
-    g = model.GetGraph()
-    print g.image_image_graph
-    #model.Initialize()
+    #g = model.GetGraph()
+    #print g.image_image_graph
+    model.Initialize()
